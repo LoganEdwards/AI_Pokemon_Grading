@@ -123,28 +123,133 @@ class MainPage(tk.Frame):
                           bg="#212b31", fg="#84a98c")
         footer.pack(side="bottom", pady=10)
 
+
 # ---------- SETTINGS / HELP PAGE ----------
 class SettingsPage(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg="#353F47")
+        super().__init__(parent, bg="#212b31")  # same as main page background
         self.controller = controller
 
-        back_btn = rect_button(self, "← Back",
-                               command=lambda: controller.show_page(MainPage),
-                               width=90, height=35)
-        back_btn.place(x=30, y=30)
+        # ==== Outer border ====
+        outer_frame = tk.Frame(self, bg="#212b31")
+        outer_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        title = tk.Label(self, text="Settings / Help",
-                         font=("Segoe UI", 18, "bold"),
-                         bg="#353F47", fg="#cad2c5")
-        title.pack(pady=(80, 20))
+        # ==== Title bar ====
+        title_bar = tk.Frame(outer_frame, bg="#212b31")
+        title_bar.pack(fill="x", pady=(5, 10))
 
-        info_text = (
-            "Settings page"
+        title_label = tk.Label(
+            title_bar,
+            text="Settings and Help",
+            font=("Segoe UI", 20, "bold"),
+            bg="#212b31",
+            fg="#cad2c5"
         )
-        info_label = tk.Label(self, text=info_text, justify="center",
-                              font=("Segoe UI", 11), bg="#353F47", fg="#d8e2dc")
-        info_label.pack(pady=20)
+        title_label.pack(pady=5)
+
+        # Back button styled like others
+        back_btn = rect_button(
+            title_bar,
+            "← Back",
+            command=lambda: controller.show_page(MainPage),
+            width=100, height=36
+        )
+        back_btn.pack(side="left", padx=20, pady=5)
+
+        # ==== Inner content (lighter section) ====
+        inner_frame = tk.Frame(outer_frame, bg="#353F47")
+        inner_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # ==== Section 1: How to Upload Header ====
+        upload_label = tk.Label(
+            inner_frame,
+            text="How to Upload an Image",
+            font=("Segoe UI", 14, "bold"),
+            bg="#353F47",
+            fg="#d8e2dc"
+        )
+        upload_label.pack(pady=(15, 8))
+
+        # ==== Middle Box for Steps to upload image ====
+        steps_box = tk.Frame(inner_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
+        steps_box.pack(pady=(5, 20), ipadx=10, ipady=10, fill="x", padx=80)
+
+        steps_text = tk.Label(
+            steps_box,
+            text=(
+                "1. First select the box on the main page labeled (Browse Files).\n"
+                "2. Next search for the card you wish to upload.\n"
+                "3. Ensure that this file is a .jpg, .jpeg, or .png file before uploading.\n"
+                "4. After selecting the file, check that the path is correct and hit the submit button below."
+            ),
+            font=("Segoe UI", 15),
+            bg="#2b363c",
+            fg="#f0f0f0",  # brighter text for readability
+            justify="left",
+            wraplength=900
+        )
+        steps_text.pack(anchor="w", padx=15, pady=10)
+
+        # ==== Bottom two sections ====
+        bottom_frame = tk.Frame(inner_frame, bg="#353F47")
+        bottom_frame.pack(fill="both", expand=True, padx=40, pady=(10, 20))
+
+        # Left: image placeholder (narrower, same height as right box)
+        left_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
+        left_box.place(relx=0.05, rely=0, relwidth=0.35, relheight=0.8)  # match right_box height
+
+        # Title at the top of the box
+        left_title = tk.Label(
+            left_box,
+            text="Reference Image",
+            bg="#2b363c",
+            fg="#cad2c5",
+            font=("Segoe UI", 14, "bold")
+        )
+        left_title.pack(anchor="n", pady=(10, 0))
+
+        # Placeholder label in center
+        left_label = tk.Label(
+            left_box,
+            text="(Image Placeholder Box)",
+            bg="#2b363c",
+            fg="#cad2c5",
+            font=("Segoe UI", 12, "italic")
+        )
+        left_label.place(relx=0.5, rely=0.55, anchor="center")
+
+        # Right: Things to Avoid (unchanged)
+        right_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
+        right_box.place(relx=0.45, rely=0, relwidth=0.5, relheight=0.8)  # already 0.8
+
+        right_label = tk.Label(
+            right_box,
+            text="Things to Avoid:",
+            bg="#2b363c",
+            fg="#f0f0f0",
+            font=("Segoe UI", 16, "bold"),
+            anchor="w"
+        )
+        right_label.pack(anchor="w", padx=15, pady=(10, 0))
+
+        bullets = "\n\n".join([
+            "• Images taken directly above the card work best; avoid steep camera angles.",
+            "• Ensure ample lighting on the card; avoid shadows or dimly lit rooms.",
+            "• Do not block the front of the card or place anything on top of it.",
+            "• Use a clear background around the card whenever possible."
+        ])
+
+        bullet_label = tk.Label(
+            right_box,
+            text=bullets,
+            bg="#2b363c",
+            fg="#f0f0f0",
+            font=("Segoe UI", 14),
+            justify="left",
+            wraplength=400
+        )
+        bullet_label.pack(anchor="w", padx=20, pady=10)
+
 
 
 # ---------- HOW IT WORKS PAGE ----------
