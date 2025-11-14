@@ -255,26 +255,124 @@ class SettingsPage(tk.Frame):
 # ---------- HOW IT WORKS PAGE ----------
 class HowItWorksPage(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg="#353F47")
+        super().__init__(parent, bg="#212b31")  # match main background
         self.controller = controller
 
-        back_btn = rect_button(self, "← Back",
-                               command=lambda: controller.show_page(MainPage),
-                               width=90, height=35)
-        back_btn.place(x=30, y=30)
+        # ==== Outer Frame ====
+        outer_frame = tk.Frame(self, bg="#212b31")
+        outer_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        title = tk.Label(self, text="How It Works",
-                         font=("Segoe UI", 18, "bold"),
-                         bg="#353F47", fg="#cad2c5")
-        title.pack(pady=(80, 20))
+        # ==== Title Bar ====
+        title_bar = tk.Frame(outer_frame, bg="#212b31")
+        title_bar.pack(fill="x", pady=(5, 15))
 
-        info_text = (
-            "How it works page..."
+        # Back Button (same as other pages)
+        back_btn = rect_button(
+            title_bar,
+            "← Back",
+            command=lambda: controller.show_page(MainPage),
+            width=100,
+            height=36
         )
-        info_label = tk.Label(self, text=info_text, justify="center",
-                              font=("Segoe UI", 11), bg="#353F47", fg="#d8e2dc")
-        info_label.pack(pady=20)
+        back_btn.pack(side="left", padx=20, pady=5)
 
+        title_label = tk.Label(
+            title_bar,
+            text="How It Works",
+            font=("Segoe UI", 20, "bold"),
+            bg="#212b31",
+            fg="#cad2c5"
+        )
+        title_label.pack(pady=5)
+
+        # ==== Inner Area ====
+        inner_frame = tk.Frame(outer_frame, bg="#353F47")
+        inner_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # ==== Two Side-By-Side Sections ====
+        bottom_frame = tk.Frame(inner_frame, bg="#353F47")
+        bottom_frame.pack(fill="both", expand=True, padx=40, pady=30)
+
+        # ------------------------------------------------------
+        # LEFT BOX — "How the data is gathered from the image"
+        # ------------------------------------------------------
+        left_box = tk.Frame(
+            bottom_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
+        left_box.place(relx=0.03, rely=0, relwidth=0.44, relheight=0.85)
+
+        left_title = tk.Label(
+            left_box,
+            text="How the Data is Gathered From the Image",
+            font=("Segoe UI", 15, "bold"),
+            bg="#2b363c",
+            fg="#cad2c5",
+            wraplength=380
+        )
+        left_title.pack(anchor="n", pady=(15, 10))
+
+        left_text = tk.Label(
+            left_box,
+            text=(
+                "• The card image is loaded and checked for validity.\n\n"
+                "• The program detects the card contour by scanning inward from the edges "
+                "to find the solid border.\n\n"
+                "• A perspective transform is applied to straighten the card.\n\n"
+                "• The pixel-to-millimeter ratio is calculated to map image dimensions to "
+                "real-world card size.\n\n"
+                "• Inner artwork is detected, with a fallback to a default bounding box if "
+                "detection fails.\n\n"
+                "• Measurements include left, right, top, and bottom margins, surface features, "
+                "corner conditions, and centering ratios.\n\n"
+                "• These values are compiled into a structured data profile for scoring."
+            ),
+            font=("Segoe UI", 13),
+            bg="#2b363c",
+            fg="#f0f0f0",
+            justify="left",
+            wraplength=380
+        )
+        left_text.pack(anchor="nw", padx=20, pady=10)
+
+        # ------------------------------------------------------
+        # RIGHT BOX — "How the AI model works"
+        # ------------------------------------------------------
+        right_box = tk.Frame(
+            bottom_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
+        right_box.place(relx=0.52, rely=0, relwidth=0.45, relheight=0.85)
+
+        right_title = tk.Label(
+            right_box,
+            text="How the AI Model Works",
+            font=("Segoe UI", 15, "bold"),
+            bg="#2b363c",
+            fg="#cad2c5",
+            wraplength=380
+        )
+        right_title.pack(anchor="n", pady=(15, 10))
+
+        right_text = tk.Label(
+            right_box,
+            text=(
+                "• The data gathered from the image is passed into the Scikit learn AI model.\n\n"
+                "• The Scikit model is trained on data gathered from ~500 images of PSA graded cards.\n\n"
+                "• The model uses a __________ (Fill in later) algorithm to make an estimatation based on the user data\n\n"
+                "• The output is then displayed on the results page for review."
+            ),
+            font=("Segoe UI", 13),
+            bg="#2b363c",
+            fg="#f0f0f0",
+            justify="left",
+            wraplength=380
+        )
+        right_text.pack(anchor="nw", padx=20, pady=10)
 
 # ---------- RUN APP ----------
 if __name__ == "__main__":
