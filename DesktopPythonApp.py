@@ -179,7 +179,7 @@ class SettingsPage(tk.Frame):
             text=(
                 "1. First select the box on the main page labeled (Browse Files).\n"
                 "2. Next search for the card you wish to upload.\n"
-                "3. Ensure that this file is a .jpg, .jpeg, or .png file before uploading.\n"
+                "3. Ensure that this file is a .jpg, .jpeg, .bmp, or .png file before uploading.\n"
                 "4. After selecting the file, check that the path is correct and hit the submit button below."
             ),
             font=("Segoe UI", 15),
@@ -224,7 +224,7 @@ class SettingsPage(tk.Frame):
 
         right_label = tk.Label(
             right_box,
-            text="Things to Avoid:",
+            text="Things to Look Out For:",
             bg="#2b363c",
             fg="#f0f0f0",
             font=("Segoe UI", 16, "bold"),
@@ -233,10 +233,11 @@ class SettingsPage(tk.Frame):
         right_label.pack(anchor="w", padx=15, pady=(10, 0))
 
         bullets = "\n\n".join([
-            "• Images taken directly above the card work best; avoid steep camera angles.",
-            "• Ensure ample lighting on the card; avoid shadows or dimly lit rooms.",
-            "• Do not block the front of the card or place anything on top of it.",
-            "• Use a clear background around the card whenever possible."
+            "• Avoid steep camera angles, try to get a direct 90 degree shot from above.",
+            "• Avoid shadows or dimly lit rooms. Use even lighting to avoid glare.",
+            "• Do not block the front of the card, remove any sleeves or holders.",
+            "• Use a clear dark background and avoid anything else visible other than the card.",
+            "• Ensure the entire card is visible in the frame, fill the majority of the frame with the card."
         ])
 
         bullet_label = tk.Label(
