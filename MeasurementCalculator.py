@@ -353,7 +353,8 @@ if __name__ == "__main__":
     # main()
 
     # or process whole folder into trainingData.txt:
-    # (File Name, Surface score, Centering Horizontal score, Centering Vertical score). No percentages, just ratios.
+    # (File Name, Surface score, Corners score, Centering Horizontal score, Centering Vertical score). No percentages, just ratios.
     images_folder = r"C:\Users\LEdwa\AI_Pokegrader\CardImages"
     training_file = r"C:\Users\LEdwa\AI_Pokegrader\trainingData.txt"
     imgFolderToTxtFile(images_folder, training_file)
+
