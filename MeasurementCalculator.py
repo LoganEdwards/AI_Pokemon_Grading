@@ -1,12 +1,135 @@
 import cv2
 import numpy as np
+import os
+import glob
+import traceback
+import csv
 
 # ---------- Default Image Path ----------
-IMAGE_PATH = r"C:\Users\LEdwa\AI_Pokegrader\CardImages\RainbowShineRevHoloTrainerEdgeDmg.jpg"
+IMAGE_PATH = r"C:\Users\LEdwa\AI_Pokegrader\CardImages\OldGroudon.jpg"
 
 # ---------- Constants (standard TCG card) ----------
 CARD_WIDTH_MM = 63.5
 CARD_HEIGHT_MM = 88.9
+
+# ---------- Batch Processing Function ----------
+def imgFolderToTxtFile(folder_path,
+                       output_csv_path,
+                       supported_exts=(".jpg", ".jpeg", ".png", ".bmp"),
+                       scan_step=5,
+                       color_tol=30):
+    """
+    Outputs CSV rows:
+    filename, surface_score, corners_score, centering_h_label, centering_v_label
+    (NO percentages)
+    """
+
+    folder_path = os.path.abspath(folder_path)
+    output_csv_path = os.path.abspath(output_csv_path)
+
+    # Collect image files
+    files = []
+    for ext in supported_exts:
+        files.extend(glob.glob(os.path.join(folder_path, f"*{ext}")))
+        files.extend(glob.glob(os.path.join(folder_path, f"*{ext.upper()}")))
+    files = sorted(set(files))
+
+    if not files:
+        print(f"No images found in {folder_path}.")
+        return 0
+
+    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
+
+    # Append header if file does not yet exist
+    write_header = not os.path.exists(output_csv_path)
+
+    with open(output_csv_path, "w", newline="", encoding="utf-8") as fout:
+        writer = csv.writer(fout)
+
+        if write_header:
+            writer.writerow([
+                "filename",
+                "surface_score",
+                "corners_score",
+                "centering_h_label",
+                "centering_v_label"
+            ])
+
+        processed = 0
+
+        for fpath in files:
+            fname = os.path.basename(fpath)
+
+            try:
+                image = cv2.imread(fpath)
+                if image is None:
+                    print(f"Skipping unreadable: {fname}")
+                    continue
+
+                card_contour = detect_card_contour(image, scan_step=scan_step, color_tol=color_tol)
+                if card_contour is None:
+                    print(f"No contour found: {fname}")
+                    continue
+
+                warped = four_point_transform(image, card_contour)
+                warped_h, warped_w = warped.shape[:2]
+
+                ppm_w = warped_w / CARD_WIDTH_MM
+                ppm_h = warped_h / CARD_HEIGHT_MM
+                pixels_per_mm = (ppm_w + ppm_h) / 2.0
+                if pixels_per_mm <= 0:
+                    print(f"Invalid px/mm: {fname}")
+                    continue
+
+                inner = detect_inner_artwork(warped)
+                if inner is None:
+                    ix, iy, iw, ih = fallback_inner_box(warped_w, warped_h)
+                else:
+                    ix, iy, iw, ih = inner
+
+                if iw <= 0 or ih <= 0 or iw > warped_w * 0.95 or ih > warped_h * 0.95:
+                    ix, iy, iw, ih = fallback_inner_box(warped_w, warped_h)
+
+                # --- Calculate mm ---
+                left_mm = ix / pixels_per_mm
+                right_mm = (warped_w - (ix + iw)) / pixels_per_mm
+                top_mm = iy / pixels_per_mm
+                bottom_mm = (warped_h - (iy + ih)) / pixels_per_mm
+
+                left_mm = min(left_mm, CARD_WIDTH_MM / 2)
+                right_mm = min(right_mm, CARD_WIDTH_MM / 2)
+                top_mm = min(top_mm, CARD_HEIGHT_MM / 2)
+                bottom_mm = min(bottom_mm, CARD_HEIGHT_MM / 2)
+
+                horiz_ratio = min(left_mm, right_mm) / (max(left_mm, right_mm) + 1e-9)
+                vert_ratio = min(top_mm, bottom_mm) / (max(top_mm, bottom_mm) + 1e-9)
+
+                # --- ONLY labels, no percentages ---
+                psa_h = ratio_to_psa_label(horiz_ratio)
+                psa_v = ratio_to_psa_label(vert_ratio)
+
+                surface_score = compute_surface_score(warped)
+                corners_score = compute_corners_score(warped)
+
+                # --- Write clean CSV row ---
+                writer.writerow([
+                    fname,
+                    surface_score,
+                    corners_score,
+                    psa_h,
+                    psa_v
+                ])
+
+                processed += 1
+                print(f"Processed: {fname}")
+
+            except Exception as e:
+                print(f"Error processing {fname}: {e}")
+                traceback.print_exc()
+                continue
+
+    print(f"Completed. {processed} images written to CSV.")
+    return processed
 
 # ---------- Helpers ----------
 def order_points(pts):
@@ -226,4 +349,11 @@ def main():
           f"centering_v:{vert_ratio*100:.1f}% [{psa_v}])")
 
 if __name__ == "__main__":
-    main()
+    # single-image main() still usable
+    # main()
+
+    # or process whole folder into trainingData.txt:
+    # (File Name, Surface score, Centering Horizontal score, Centering Vertical score). No percentages, just ratios.
+    images_folder = r"C:\Users\LEdwa\AI_Pokegrader\CardImages"
+    training_file = r"C:\Users\LEdwa\AI_Pokegrader\trainingData.txt"
+    imgFolderToTxtFile(images_folder, training_file)
