@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog
+from PIL import Image, ImageTk
 
 # ---------- Reusable Rectangular Button ----------
 def rect_button(parent, text, command=None, width=140, height=40,
@@ -249,9 +250,15 @@ class SettingsPage(tk.Frame):
         bottom_frame = tk.Frame(inner_frame, bg="#353F47")
         bottom_frame.pack(fill="both", expand=True, padx=40, pady=(10, 20))
 
-        # Left: image placeholder (narrower, same height as right box)
-        left_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
-        left_box.place(relx=0.05, rely=0, relwidth=0.35, relheight=0.8)  # match right_box height
+        # Left: image placeholder (replaced with actual reference image using PIL)
+        # Left: image placeholder (replaced with actual reference image using PIL)
+        left_box = tk.Frame(
+            bottom_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
+        left_box.place(relx=0.05, rely=0, relwidth=0.35, relheight=0.9)
 
         # Title at the top of the box
         left_title = tk.Label(
@@ -261,17 +268,51 @@ class SettingsPage(tk.Frame):
             fg="#cad2c5",
             font=("Segoe UI", 14, "bold")
         )
-        left_title.pack(anchor="n", pady=(10, 0))
+        left_title.pack(anchor="n", pady=(10, 10))
 
-        # Placeholder label in center
-        left_label = tk.Label(
-            left_box,
-            text="(Image Placeholder Box)",
-            bg="#2b363c",
-            fg="#cad2c5",
-            font=("Segoe UI", 12, "italic")
-        )
-        left_label.place(relx=0.5, rely=0.55, anchor="center")
+
+        # --- Function that runs AFTER the box is rendered ---
+        def load_ref_image():
+
+            try:
+                img_path = r"C:\Users\LEdwa\AI_Pokegrader\referenceImages\DarkBackgroundReferenceImage.jpg"
+
+                pil_img = Image.open(img_path)
+
+                # Now the box has *real* size values
+                left_box.update_idletasks()
+                box_w = left_box.winfo_width()
+                box_h = left_box.winfo_height() - 60  # leave room for title
+
+                # Maintain aspect ratio
+                img_w, img_h = pil_img.size
+                scale = min(box_w / img_w, box_h / img_h)
+
+                new_w = int(img_w * scale)
+                new_h = int(img_h * scale)
+
+                pil_img = pil_img.resize((new_w, new_h), Image.LANCZOS)
+
+                # Convert to Tk image
+                self.ref_img = ImageTk.PhotoImage(pil_img)
+
+                # Display image
+                left_img_label = tk.Label(left_box, image=self.ref_img, bg="#2b363c")
+                left_img_label.pack(expand=True)
+
+            except Exception as e:
+                fallback = tk.Label(
+                    left_box,
+                    text="(Reference image failed to load)",
+                    bg="#2b363c",
+                    fg="#cad2c5",
+                    font=("Segoe UI", 12, "italic")
+                )
+                fallback.pack(expand=True)
+                print("Image load error:", e)
+
+        # Delay image loading → fixes width=0 / height=0 error
+        left_box.after(100, load_ref_image)
 
         # Right: Things to Avoid (unchanged)
         right_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
