@@ -518,32 +518,41 @@ class ResultsPage(tk.Frame):
         bottom_frame = tk.Frame(inner_frame, bg="#353F47")
         bottom_frame.pack(fill="both", expand=True, padx=40, pady=10)
 
-        left_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
-        left_box.place(relx=0.03, rely=0, relwidth=0.44, relheight=0.6)
+        # ========= LEFT BOX (Submitted Image Preview) =========
+        left_box = tk.Frame(
+            bottom_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
+        left_box.place(relx=0.05, rely=0, relwidth=0.4, relheight=0.9)
+        self.left_box = left_box  # store reference for image resizing
 
         left_title = tk.Label(
             left_box,
-            text="Submitted Card",
-            font=("Segoe UI", 14, "bold"),
+            text="Submitted Image",
             bg="#2b363c",
-            fg="#cad2c5"
+            fg="#cad2c5",
+            font=("Segoe UI", 14, "bold")
         )
-        left_title.pack(anchor="n", pady=(10, 8))
+        left_title.pack(anchor="n", pady=10)
 
-        # placeholder for the submitted image / details
+        # Placeholder until an image is submitted
         self.submitted_placeholder = tk.Label(
             left_box,
-            text="(Submitted card preview will appear here)",
+            text="(No image submitted)",
             bg="#2b363c",
-            fg="#f0f0f0",
-            font=("Segoe UI", 12),
-            wraplength=320,
-            justify="center"
+            fg="#cad2c5",
+            font=("Segoe UI", 12, "italic")
         )
-        self.submitted_placeholder.pack(expand=True, pady=20)
+        self.submitted_placeholder.pack(expand=True)
+
+        # Image label reference (starts empty)
+        self.submitted_image_label = None
+        self.submitted_tk_img = None
 
         right_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
-        right_box.place(relx=0.52, rely=0, relwidth=0.45, relheight=0.6)
+        right_box.place(relx=0.52, rely=0, relwidth=0.45, relheight=0.9)
 
         right_title = tk.Label(
             right_box,
@@ -585,14 +594,52 @@ class ResultsPage(tk.Frame):
         self.feedback_text.config(state="disabled")
         self.feedback_text.pack(fill="both", expand=True, padx=15, pady=(0, 10))
 
+    # ========= FUNCTION: Load the submitted image =========
     def show_submitted_file(self, filepath):
-        """Placeholder method — called when submit is pressed.
-        Currently writes the filepath into the Submitted Card placeholder.
-        Later: load & display thumbnail, or populate feedback and similar card."""
-        if filepath and filepath != "No file selected":
-            self.submitted_placeholder.config(text=f"Submitted file:\n{filepath}")
-        else:
-            self.submitted_placeholder.config(text="(No file provided)")
+        """Load and display the submitted card image in the left box."""
+
+        # Clear placeholder
+        self.submitted_placeholder.pack_forget()
+
+        # Remove old image if it exists
+        if self.submitted_image_label:
+            self.submitted_image_label.destroy()
+
+        try:
+            pil_img = Image.open(filepath)
+
+            # Ensure left_box has rendered to get correct dimensions
+            self.left_box.update_idletasks()
+
+            box_w = self.left_box.winfo_width()
+            box_h = self.left_box.winfo_height() - 60  # leave room for title
+
+            # Keep aspect ratio
+            img_w, img_h = pil_img.size
+            scale = min(box_w / img_w, box_h / img_h)
+            new_w = int(img_w * scale)
+            new_h = int(img_h * scale)
+
+            pil_img = pil_img.resize((new_w, new_h), Image.LANCZOS)
+
+            # Convert to Tk image (must keep reference!)
+            self.submitted_tk_img = ImageTk.PhotoImage(pil_img)
+
+            # Create label for image
+            self.submitted_image_label = tk.Label(
+                self.left_box,
+                image=self.submitted_tk_img,
+                bg="#2b363c"
+            )
+            self.submitted_image_label.pack(expand=True, pady=10)
+
+        except Exception as e:
+            # Fallback message
+            self.submitted_placeholder.config(
+                text="(Error loading image)"
+            )
+            self.submitted_placeholder.pack(expand=True)
+            print("Submitted image load error:", e)
 
 
 # ---------- RUN APP ----------
