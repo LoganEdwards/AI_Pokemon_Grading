@@ -1,6 +1,17 @@
+import os
 import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
+from MeasurementCalculator import process_single_card
+
+import pickle
+from Scikit_Learn_Model import predict_card_grade
+from paths import resource_path
+
+# ---------- Load Trained Model Pickle File ----------
+model_path = resource_path("trained_model.pkl")
+with open(model_path, "rb") as f:
+    model = pickle.load(f)
 
 # ---------- Reusable Rectangular Button ----------
 def rect_button(parent, text, command=None, width=140, height=40,
@@ -53,6 +64,7 @@ class AIPokemonGraderApp(tk.Tk):
         self.geometry("1440x960")
         self.configure(bg="#212b31")
 
+        self.latest_prediction = None
         self.container = tk.Frame(self, bg="#212b31")
         self.container.pack(fill="both", expand=True)
 
@@ -123,19 +135,76 @@ class MainPage(tk.Frame):
 
         # Submit button
         def on_submit():
-            # for now we simply print and navigate to results page
-            print("Selected file:", self.selected_file.get())
-            # You can later pass the path/data to the ResultsPage via attributes or a method.
-            controller.show_page(ResultsPage)
-            # populate results page placeholders if desired:
-            results_page = controller.pages[ResultsPage]
-            results_page.show_submitted_file(self.selected_file.get())
+            file_path = self.selected_file.get()
+            if file_path == "No file selected":
+                return
 
+            print("Selected file:", file_path)
+
+            # Step 1: Run measurement calculator
+            measurement_data = process_single_card(file_path)
+            if measurement_data is None:
+                print("Error: MeasurementCalculator returned None")
+                return
+
+            surface = measurement_data.get("surface", 0)
+            corners = measurement_data.get("corners", 0)
+            centering_h = measurement_data.get("centering_h", 0)
+            centering_v = measurement_data.get("centering_v", 0)
+
+            # Step 2: Predict grade
+            prediction = predict_card_grade(surface, corners, centering_h, centering_v)
+            predicted_grade = prediction["predicted_grade"]
+
+            # Step 3: Determine similarly graded card
+            if predicted_grade >= 9.5:
+                img_name = "10.0PSA_Charizard.png"
+            elif predicted_grade >= 8.5:
+                img_name = "9.0PSA_Charizard.png"
+            elif predicted_grade >= 7.5:
+                img_name = "8.0PSA_Charizard.png"
+            elif predicted_grade >= 6.5:
+                img_name = "7.0PSA_Charizard.png"
+            elif predicted_grade >= 5.5:
+                img_name = "6.0PSA_Charizard.png"
+            elif predicted_grade >= 4.5:
+                img_name = "5.0PSA_Charizard.png"
+            elif predicted_grade >= 3.5:
+                img_name = "4.0PSA_Charizard.png"
+            elif predicted_grade >= 2.5:
+                img_name = "3.0PSA_Charizard.png"
+            elif predicted_grade >= 1.5:
+                img_name = "2.0PSA_Charizard.png"
+            else:
+                img_name = "1.0PSA_Charizard.png"
+
+            similar_card_path = resource_path(os.path.join("referenceImages", img_name))
+
+            # Step 4: Package results for UI
+            user_data = {
+            "grade": predicted_grade,
+            "surface": surface,
+            "corners": corners,
+            "centering_h": centering_h,
+            "centering_v": centering_v,
+            "similar_card_path": similar_card_path
+            }
+
+
+            # Step 5: Navigate to results page & update view
+            controller.show_page(ResultsPage)
+            results_page = controller.pages[ResultsPage]
+            results_page.show_submitted_file(file_path)
+            results_page.update_results(user_data)
+
+
+        # function to enable/disable submit button depending on whether a file is selected
+        # Submit button
         submit_canvas = rect_button(content_frame, "Submit", command=on_submit,
                                     width=120, height=36)
         submit_canvas.pack(pady=10)
 
-        # function to enable/disable submit button depending on whether a file is selected
+        # Now define the function that updates submit state
         def update_submit_state():
             path = self.selected_file.get()
             if path and path != "No file selected":
@@ -143,20 +212,18 @@ class MainPage(tk.Frame):
                 submit_canvas.default_bg = "#2b363c"
                 submit_canvas.hover_bg = "#3c4a50"
                 submit_canvas.itemconfig(submit_canvas.rect_id, fill=submit_canvas.default_bg)
-                # ensure click bound
                 if not submit_canvas.bind("<Button-1>"):
                     submit_canvas.bind("<Button-1>", lambda _: on_submit())
-                # ensure hover handlers available (they already are; attributes updated above)
             else:
-                # disable: greyed out, no click
+                # disable
                 submit_canvas.default_bg = "#6b6b6b"
                 submit_canvas.hover_bg = "#6b6b6b"
                 submit_canvas.itemconfig(submit_canvas.rect_id, fill=submit_canvas.default_bg)
-                # remove click binding
                 submit_canvas.unbind("<Button-1>")
 
-        # initialize submit state (disabled by default)
+        # initialize submit state
         update_submit_state()
+
 
         # Bottom buttons frame
         bottom_frame = tk.Frame(content_frame, bg="#353F47")
@@ -251,7 +318,6 @@ class SettingsPage(tk.Frame):
         bottom_frame.pack(fill="both", expand=True, padx=40, pady=(10, 20))
 
         # Left: image placeholder (replaced with actual reference image using PIL)
-        # Left: image placeholder (replaced with actual reference image using PIL)
         left_box = tk.Frame(
             bottom_frame,
             bg="#2b363c",
@@ -275,7 +341,7 @@ class SettingsPage(tk.Frame):
         def load_ref_image():
 
             try:
-                img_path = r"C:\Users\LEdwa\AI_Pokegrader\referenceImages\DarkBackgroundReferenceImage.jpg"
+                img_path = resource_path(os.path.join("referenceImages", "DarkBackgroundReferenceImage.jpg"))
 
                 pil_img = Image.open(img_path)
 
@@ -362,6 +428,15 @@ class HowItWorksPage(tk.Frame):
         title_bar = tk.Frame(outer_frame, bg="#212b31")
         title_bar.pack(fill="x", pady=(5, 15))
 
+        title_label = tk.Label(
+            title_bar,
+            text="How It Works",
+            font=("Segoe UI", 20, "bold"),
+            bg="#212b31",
+            fg="#cad2c5"
+        )
+        title_label.pack(pady=5)
+
         # Back Button (same as other pages)
         back_btn = rect_button(
             title_bar,
@@ -371,15 +446,6 @@ class HowItWorksPage(tk.Frame):
             height=36
         )
         back_btn.pack(side="left", padx=20, pady=5)
-
-        title_label = tk.Label(
-            title_bar,
-            text="How It Works",
-            font=("Segoe UI", 20, "bold"),
-            bg="#212b31",
-            fg="#cad2c5"
-        )
-        title_label.pack(pady=5)
 
         # ==== Inner Area ====
         inner_frame = tk.Frame(outer_frame, bg="#353F47")
@@ -457,10 +523,16 @@ class HowItWorksPage(tk.Frame):
         right_text = tk.Label(
             right_box,
             text=(
-                "• The data gathered from the image is passed into the Scikit learn AI model.\n\n"
-                "• The Scikit model is trained on data gathered from ~500 images of PSA graded cards.\n\n"
-                "• The model uses a __________ (Fill in later) algorithm to make an estimatation based on the user data\n\n"
-                "• The output is then displayed on the results page for review."
+                "• The data gathered from the card image is passed into the Scikit-Learn AI model.\n\n"
+                "• The model is trained on real-world data from 100 officially PSA graded cards and 900\n"
+                "  additional synthetic training samples generated from that dataset.\n\n"
+                "• The Scikit-Learn model uses a Linear Forest Regressor to predict the overall card grade\n"
+                "  based on multiple features.\n\n"
+                "• Four measured values are used as inputs: surface condition, corner condition,\n"
+                "  horizontal centering, and vertical centering.\n\n"
+                "• These measured values are passed into the model, which then generates an estimated\n"
+                "  card grade based on the learned training data.\n\n"
+                "• The predicted grade is then displayed on the results page for the user to review."
             ),
             font=("Segoe UI", 13),
             bg="#2b363c",
@@ -484,14 +556,6 @@ class ResultsPage(tk.Frame):
         title_bar = tk.Frame(outer_frame, bg="#212b31")
         title_bar.pack(fill="x", pady=(5, 15))
 
-        back_btn = rect_button(
-            title_bar,
-            "← Back",
-            command=lambda: controller.show_page(MainPage),
-            width=100, height=36
-        )
-        back_btn.pack(side="left", padx=20, pady=5)
-
         title_label = tk.Label(
             title_bar,
             text="Results",
@@ -501,35 +565,43 @@ class ResultsPage(tk.Frame):
         )
         title_label.pack(pady=5)
 
+        back_btn = rect_button(
+            title_bar,
+            "← Back",
+            command=lambda: controller.show_page(MainPage),
+            width=100, height=36
+        )
+        back_btn.pack(side="left", padx=20, pady=5)
+
+
         inner_frame = tk.Frame(outer_frame, bg="#353F47")
         inner_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # Subheading for estimated grade
-        subheading = tk.Label(
+        # Dynamic grade label
+        self.grade_label = tk.Label(
             inner_frame,
-            text="Estimated PSA Grade: ______",
+            text="Estimated PSA Grade:",
             font=("Segoe UI", 16, "bold"),
             bg="#353F47",
             fg="#d8e2dc"
         )
-        subheading.pack(pady=(10, 20))
+        self.grade_label.pack(pady=(10, 20))
 
         # Two side-by-side boxes
         bottom_frame = tk.Frame(inner_frame, bg="#353F47")
         bottom_frame.pack(fill="both", expand=True, padx=40, pady=10)
 
         # ========= LEFT BOX (Submitted Image Preview) =========
-        left_box = tk.Frame(
+        self.left_box = tk.Frame(
             bottom_frame,
             bg="#2b363c",
             highlightbackground="#4a595f",
             highlightthickness=2
         )
-        left_box.place(relx=0.05, rely=0, relwidth=0.4, relheight=0.9)
-        self.left_box = left_box  # store reference for image resizing
+        self.left_box.place(relx=0.05, rely=0, relwidth=0.4, relheight=0.9)
 
         left_title = tk.Label(
-            left_box,
+            self.left_box,
             text="Submitted Image",
             bg="#2b363c",
             fg="#cad2c5",
@@ -537,9 +609,8 @@ class ResultsPage(tk.Frame):
         )
         left_title.pack(anchor="n", pady=10)
 
-        # Placeholder until an image is submitted
         self.submitted_placeholder = tk.Label(
-            left_box,
+            self.left_box,
             text="(No image submitted)",
             bg="#2b363c",
             fg="#cad2c5",
@@ -547,15 +618,21 @@ class ResultsPage(tk.Frame):
         )
         self.submitted_placeholder.pack(expand=True)
 
-        # Image label reference (starts empty)
         self.submitted_image_label = None
         self.submitted_tk_img = None
 
-        right_box = tk.Frame(bottom_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
-        right_box.place(relx=0.52, rely=0, relwidth=0.45, relheight=0.9)
+
+        # ========= RIGHT BOX (Similar Card Example) =========
+        self.right_box = tk.Frame(
+            bottom_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
+        self.right_box.place(relx=0.52, rely=0, relwidth=0.45, relheight=0.9)
 
         right_title = tk.Label(
-            right_box,
+            self.right_box,
             text="Similarly Graded Card",
             font=("Segoe UI", 14, "bold"),
             bg="#2b363c",
@@ -563,19 +640,38 @@ class ResultsPage(tk.Frame):
         )
         right_title.pack(anchor="n", pady=(10, 8))
 
-        self.similar_placeholder = tk.Label(
-            right_box,
-            text="(A similarly graded card example will appear here)",
-            bg="#2b363c",
-            fg="#f0f0f0",
-            font=("Segoe UI", 12),
-            wraplength=320,
-            justify="center"
-        )
-        self.similar_placeholder.pack(expand=True, pady=20)
+       # Filename display
+        # self.similar_filename_var = tk.StringVar(value="(No similar card yet)")
+        # self.similar_filename_label = tk.Label(
+        #     self.right_box,
+        #     textvariable=self.similar_filename_var,
+        #     font=("Segoe UI", 12, "italic"),
+        #     bg="#2b363c",
+        #     fg="#cad2c5"
+        # )
+        # self.similar_filename_label.pack(anchor="n", pady=(0, 5))
 
-        # Bottom paragraph-sized box with heading "Card Grading Feedback"
-        feedback_box = tk.Frame(inner_frame, bg="#2b363c", highlightbackground="#4a595f", highlightthickness=2)
+        # Placeholder / image for similar card
+        self.similar_card_img_label = tk.Label(
+            self.right_box,
+            text="(No image yet)",
+            bg="#2b363c",
+            fg="#cad2c5",
+            font=("Segoe UI", 12, "italic")
+        )
+        self.similar_card_img_label.pack(expand=True)
+
+        # Keep a reference to the PhotoImage
+        self.similar_tk_img = None
+
+
+        # ========= Feedback Box =========
+        feedback_box = tk.Frame(
+            inner_frame,
+            bg="#2b363c",
+            highlightbackground="#4a595f",
+            highlightthickness=2
+        )
         feedback_box.pack(fill="x", padx=80, pady=(20, 30), ipady=10)
 
         feedback_title = tk.Label(
@@ -587,59 +683,140 @@ class ResultsPage(tk.Frame):
         )
         feedback_title.pack(anchor="nw", padx=15, pady=(10, 6))
 
-        # Use a Text widget so the feedback can be long; initially read-only / placeholder text
-        self.feedback_text = tk.Text(feedback_box, height=6, bg="#2b363c", fg="#f0f0f0",
-                                     font=("Segoe UI", 12), wrap="word", bd=0)
-        self.feedback_text.insert("1.0", "Feedback about the card grading will appear here. This can include surface notes, corner condition notes, centering, and other details.")
+        self.feedback_text = tk.Text(
+            feedback_box,
+            height=6,
+            bg="#2b363c",
+            fg="#f0f0f0",
+            font=("Segoe UI", 12),
+            wrap="word",
+            bd=0
+        )
+        self.feedback_text.insert("1.0", "(Your feedback will appear here.)")
         self.feedback_text.config(state="disabled")
         self.feedback_text.pack(fill="both", expand=True, padx=15, pady=(0, 10))
 
-    # ========= FUNCTION: Load the submitted image =========
-    def show_submitted_file(self, filepath):
-        """Load and display the submitted card image in the left box."""
 
-        # Clear placeholder
-        self.submitted_placeholder.pack_forget()
 
-        # Remove old image if it exists
-        if self.submitted_image_label:
-            self.submitted_image_label.destroy()
-
+    # ================= IMAGE UPDATE ================= #
+    def show_submitted_file(self, file_path):
         try:
-            pil_img = Image.open(filepath)
+            if self.submitted_image_label:
+                self.submitted_image_label.destroy()
 
-            # Ensure left_box has rendered to get correct dimensions
+            img = Image.open(file_path)
+
             self.left_box.update_idletasks()
-
             box_w = self.left_box.winfo_width()
-            box_h = self.left_box.winfo_height() - 60  # leave room for title
+            box_h = self.left_box.winfo_height() - 50
 
-            # Keep aspect ratio
-            img_w, img_h = pil_img.size
-            scale = min(box_w / img_w, box_h / img_h)
-            new_w = int(img_w * scale)
-            new_h = int(img_h * scale)
+            img.thumbnail((box_w, box_h))
+            self.submitted_tk_img = ImageTk.PhotoImage(img)
 
-            pil_img = pil_img.resize((new_w, new_h), Image.LANCZOS)
-
-            # Convert to Tk image (must keep reference!)
-            self.submitted_tk_img = ImageTk.PhotoImage(pil_img)
-
-            # Create label for image
             self.submitted_image_label = tk.Label(
                 self.left_box,
                 image=self.submitted_tk_img,
                 bg="#2b363c"
             )
-            self.submitted_image_label.pack(expand=True, pady=10)
+            self.submitted_image_label.pack(expand=True)
+
+            if self.submitted_placeholder:
+                self.submitted_placeholder.destroy()
 
         except Exception as e:
-            # Fallback message
-            self.submitted_placeholder.config(
-                text="(Error loading image)"
-            )
-            self.submitted_placeholder.pack(expand=True)
-            print("Submitted image load error:", e)
+            print("Error displaying submitted image:", e)
+
+
+
+    # ================= RESULTS UPDATE ================= #
+    def update_results(self, user_data):
+
+        grade = user_data.get("grade", "N/A")
+        # Extract values from model data
+        surface = user_data.get("surface")
+        corners = user_data.get("corners")
+        cent_h = user_data.get("centering_h")
+        cent_v = user_data.get("centering_v")
+
+        feedback_lines = []
+
+        # Helper 
+        # ===== Surface & Corners Feedback =====
+        def score_feedback(label, score):
+            if score is None:
+                return f"{label}: No data"
+            diff = 10 - score  # distance from PSA 10
+            if diff > 5:
+                return f"{label}: {score:.2f} - severely damaged or below PSA 10 requirements"
+            elif diff > 3:
+                return f"{label}: {score:.2f} - fairly damaged or below PSA 10 standards"
+            elif diff > 1.5:
+                return f"{label}: {score:.2f} - decent quality but not meeting PSA 10 standards"
+            else:
+                return f"{label}: {score:.2f} - great quality, meets PSA 9-10 standard"
+
+        feedback_lines.append(score_feedback("Surface", surface))
+        feedback_lines.append(score_feedback("Corners", corners))
+
+        # ===== Centering Feedback =====
+        def center_feedback(label, score):
+            if score is None:
+                return f"{label}: No data"
+            if score >= 0.85:
+                return f"{label}: {score:.2f} - severely uneven centering"
+            elif score >= 0.70:
+                return f"{label}: {score:.2f} - moderately uneven centering"
+            elif score >= 0.65:
+                return f"{label}: {score:.2f} - decent centering"
+            else:
+                return f"{label}: {score:.2f} - near-perfect centering valid for PSA 9-10"
+
+        feedback_lines.append(center_feedback("Centering H", cent_h))
+        feedback_lines.append(center_feedback("Centering V", cent_v))
+
+        # Join feedback text
+        feedback = "\n".join(feedback_lines)
+
+        
+        similar_path = user_data.get("similar_card_path", None)
+
+        # Grade Text
+        self.grade_label.config(text=f"Estimated PSA Grade: {grade}")
+
+        # Feedback text
+        self.feedback_text.config(state="normal")
+        self.feedback_text.delete("1.0", "end")
+        self.feedback_text.insert("1.0", feedback)
+        self.feedback_text.config(state="disabled")
+
+        # Similar card preview
+        if similar_path:
+            try:
+                img = Image.open(similar_path)
+
+                # Resize to fit the box while maintaining aspect ratio
+                self.right_box.update_idletasks()
+                box_w = self.right_box.winfo_width()
+                box_h = self.right_box.winfo_height() - 40  # leave space for filename
+
+                img.thumbnail((box_w, box_h), Image.LANCZOS)
+                self.similar_tk_img = ImageTk.PhotoImage(img)  # keep reference!
+
+                # Update label
+                self.similar_card_img_label.config(image=self.similar_tk_img, text="")
+                # self.similar_filename_var.set(similar_path.split("\\")[-1])  # only filename
+
+            except Exception as e:
+                print("Error loading similar card image:", e)
+                self.similar_card_img_label.config(
+                    text="(Failed to load similar card image)",
+                    image=""
+                )
+                self.similar_filename_var.set("")
+        else:
+            # self.similar_card_img_label.config(text="(No similar card image available)", image="")
+            self.similar_filename_var.set("")
+
 
 
 # ---------- RUN APP ----------
