@@ -1,9 +1,13 @@
 import csv
+import os
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+import pickle
+
+from paths import resource_path
 
 # ---------- File Path ----------
-csv_file_path = r"C:\Users\LEdwa\AI_Pokegrader\trainingData.txt"  # update with your CSV path
+csv_file_path = resource_path(os.path.join("trainingData.txt"))  # update with your CSV path
 
 # ---------- Initialize Training Lists ----------
 x_training = []
@@ -40,6 +44,22 @@ print("y_train shape:", y_train.shape)
 model = RandomForestRegressor(n_estimators=200, random_state=42)
 model.fit(X_train, y_train)
 
-# ---------- Optional: Sample Predictions ----------
-# sample_preds = model.predict(X_train[:5])
-# print("Sample predictions:", sample_preds)
+def predict_card_grade(surface, corners, centering_h, centering_v):
+    # Create feature array for prediction
+    input_data = np.array([[surface, corners, centering_h, centering_v]])
+    predicted_grade = model.predict(input_data)[0]  # fetch scalar value
+
+    return {
+        "surface": round(surface, 2),
+        "corners": round(corners, 2),
+        "centering_h": round(centering_h, 2),
+        "centering_v": round(centering_v, 2),
+        "predicted_grade": round(predicted_grade, 1)
+    }
+
+# Save model to file
+model_save_path = resource_path(os.path.join("trained_model.pkl"))
+with open(model_save_path, "wb") as f:
+    pickle.dump(model, f)
+
+print(f"Model saved to: {model_save_path}")
